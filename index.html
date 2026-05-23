@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiniela Mundial 2026 — Guille</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:    #0a1628;
+  --navy2:   #0f2040;
+  --navy3:   #152a52;
+  --gold:    #c9a84c;
+  --gold-lt: #e8c97a;
+  --gold-dk: #8b6520;
+  --gold-xs: #4a3510;
+  --cream:   #f0e8d8;
+  --white:   #ffffff;
+  --muted:   #7a9bbf;
+  --card:    rgba(15,32,64,0.85);
+  --border:  rgba(201,168,76,0.25);
+  --border2: rgba(201,168,76,0.5);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--navy);
+  color: var(--cream);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── BACKGROUND ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(201,168,76,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 80% 90%, rgba(201,168,76,0.05) 0%, transparent 60%),
+    linear-gradient(160deg, #060e1f 0%, #0a1628 40%, #0d1e38 70%, #060e1f 100%);
+  pointer-events: none;
+}
+
+/* ── STAR FIELD ── */
+.stars {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 15% 20%, rgba(201,168,76,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 72% 8%,  rgba(201,168,76,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 45% 55%, rgba(201,168,76,0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 88% 42%, rgba(201,168,76,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 75%, rgba(201,168,76,0.25)0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 90%, rgba(201,168,76,0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 5%  60%, rgba(201,168,76,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 95% 70%, rgba(201,168,76,0.2) 0%, transparent 100%);
+}
+
+/* ── LAYOUT ── */
+.wrap { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+/* ── HEADER ── */
+header {
+  position: relative;
+  padding: 52px 0 40px;
+  text-align: center;
+  border-bottom: 1px solid var(--border2);
+}
+header::after {
+  content: '';
+  position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%);
+  width: 120px; height: 2px; background: var(--gold);
+}
+
+.trophy { font-size: 2.8rem; display: block; margin-bottom: 8px;
+  animation: float 3s ease-in-out infinite; }
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+
+header h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2.2rem, 5vw, 3.6rem);
+  font-weight: 700;
+  color: var(--gold-lt);
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+}
+header h1 span { display: block; font-size: 0.55em; color: var(--cream); font-weight: 400; letter-spacing: 0.12em; margin-top: 4px; }
+
+.host-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: 14px; padding: 6px 18px;
+  border: 1px solid var(--border2);
+  border-radius: 40px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.85rem; font-weight: 600; letter-spacing: 0.1em;
+  color: var(--gold);
+  background: rgba(201,168,76,0.06);
+}
+
+/* ── NAV TABS ── */
+nav {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin: 36px 0 0;
+  overflow-x: auto;
+}
+nav::-webkit-scrollbar { height: 3px; }
+nav::-webkit-scrollbar-thumb { background: var(--gold-dk); }
+
+.tab {
+  flex-shrink: 0;
+  padding: 12px 22px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.9rem; font-weight: 600; letter-spacing: 0.08em;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all .25s;
+  background: none; border-top: none; border-left: none; border-right: none;
+  white-space: nowrap;
+}
+.tab:hover { color: var(--gold-lt); }
+.tab.active { color: var(--gold-lt); border-bottom-color: var(--gold); }
+
+/* ── PANEL ── */
+.panel { display: none; padding: 36px 0 60px; animation: fadeUp .35s ease; }
+.panel.active { display: block; }
+@keyframes fadeUp {
+  from { opacity:0; transform: translateY(12px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+
+/* ── SECTION TITLE ── */
+.sec-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.7rem; font-weight: 600;
+  color: var(--gold-lt);
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+.sec-sub {
+  font-size: 0.82rem; color: var(--muted);
+  margin-bottom: 28px;
+  font-family: 'Rajdhani', sans-serif; letter-spacing: 0.06em;
+}
+
+/* ── GOLD DIVIDER ── */
+.gold-line {
+  display: flex; align-items: center; gap: 12px;
+  margin: 28px 0;
+}
+.gold-line::before, .gold-line::after {
+  content: ''; flex: 1; height: 1px; background: var(--border2);
+}
+.gold-line span { color: var(--gold); font-size: 0.7rem; }
+
+/* ── STATS CARDS ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 36px;
+}
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 16px;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  transition: border-color .3s, transform .3s;
+}
+.stat-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+.stat-card .val {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.4rem; font-weight: 700;
+  color: var(--gold-lt); line-height: 1;
+}
+.stat-card .lbl {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em;
+  color: var(--muted); margin-top: 4px;
+}
+
+/* ── PODIUM ── */
+.podium {
+  display: flex; justify-content: center; align-items: flex-end;
+  gap: 12px; margin: 0 auto 40px; max-width: 560px;
+}
+.podium-item {
+  flex: 1; text-align: center;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px 12px 0 0;
+  padding: 20px 10px 16px;
+  backdrop-filter: blur(10px);
+  transition: border-color .3s;
+}
+.podium-item:hover { border-color: var(--border2); }
+.podium-item.first  { height: 200px; border-color: var(--gold); }
+.podium-item.second { height: 160px; }
+.podium-item.third  { height: 130px; }
+.podium-medal { font-size: 2rem; display: block; }
+.podium-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.9rem; font-weight: 700; color: var(--cream);
+  margin: 6px 0 2px; word-break: break-word;
+}
+.podium-pts {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.6rem; font-weight: 700; color: var(--gold-lt);
+}
+.podium-pts span { font-size: 0.7rem; color: var(--muted); font-family: 'Inter', sans-serif; }
+
+/* ── TABLE ── */
+.tbl-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
+table {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.88rem;
+}
+thead th {
+  background: var(--gold-xs);
+  color: var(--gold-lt);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em;
+  padding: 12px 14px; text-align: left;
+  white-space: nowrap;
+}
+tbody tr {
+  border-bottom: 1px solid rgba(201,168,76,0.08);
+  transition: background .2s;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(201,168,76,0.04); }
+tbody tr.top3 { background: rgba(201,168,76,0.06); }
+tbody td {
+  padding: 11px 14px;
+  color: var(--cream);
+  font-size: 0.87rem;
+}
+.rank-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 0.8rem;
+}
+.rank-1 { background: var(--gold); color: var(--navy); }
+.rank-2 { background: #9aa5b4; color: var(--navy); }
+.rank-3 { background: #b87333; color: var(--navy); }
+.rank-n { background: rgba(201,168,76,0.1); color: var(--muted); }
+
+.pts-cell {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.3rem; font-weight: 700;
+  color: var(--gold-lt);
+}
+.exact-cell { color: #6fcf97; font-weight: 600; }
+.nick { color: var(--muted); font-size: 0.78rem; font-style: italic; }
+
+/* ── MATCHES ── */
+.group-section { margin-bottom: 36px; }
+.group-header {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 14px;
+}
+.group-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.15em;
+  color: var(--gold); background: rgba(201,168,76,0.1);
+  border: 1px solid var(--border2);
+  border-radius: 4px; padding: 3px 10px;
+}
+.group-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.1rem; font-weight: 600; color: var(--cream);
+}
+
+.match-card {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 8px;
+  backdrop-filter: blur(10px);
+  transition: border-color .25s;
+}
+.match-card:hover { border-color: var(--border2); }
+.match-card.played { border-color: rgba(201,168,76,0.2); }
+
+.team { display: flex; align-items: center; gap: 10px; }
+.team.away { flex-direction: row-reverse; }
+.team-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.95rem; font-weight: 600; color: var(--cream);
+}
+.team-flag { font-size: 1.4rem; }
+
+.score-box {
+  text-align: center;
+  min-width: 80px;
+}
+.score-nums {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.8rem; font-weight: 700;
+  color: var(--gold-lt);
+  line-height: 1;
+}
+.score-date {
+  font-size: 0.7rem; color: var(--muted);
+  font-family: 'Rajdhani', sans-serif; letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+.score-venue {
+  font-size: 0.65rem; color: rgba(122,155,191,0.7);
+  font-family: 'Inter', sans-serif;
+}
+.score-pending {
+  font-size: 0.75rem; color: var(--muted);
+  font-family: 'Rajdhani', sans-serif; letter-spacing: 0.1em;
+}
+
+/* ── NEWS ── */
+.news-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 10px 10px 0;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  backdrop-filter: blur(10px);
+}
+.news-date {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.72rem; color: var(--gold); letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+.news-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.1rem; font-weight: 600; color: var(--cream);
+  margin-bottom: 6px;
+}
+.news-body { font-size: 0.87rem; color: var(--muted); line-height: 1.6; }
+
+/* ── LOADER ── */
+.loader {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; padding: 40px;
+  color: var(--muted);
+  font-family: 'Rajdhani', sans-serif; letter-spacing: 0.1em; font-size: 0.85rem;
+}
+.loader::before {
+  content: '';
+  width: 18px; height: 18px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error-msg {
+  text-align: center; padding: 40px 20px;
+  color: var(--muted); font-size: 0.9rem; line-height: 1.8;
+}
+.error-msg a { color: var(--gold); }
+
+/* ── SETUP BANNER ── */
+.setup-banner {
+  background: rgba(201,168,76,0.06);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 28px 32px;
+  margin-bottom: 32px;
+}
+.setup-banner h3 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.3rem; color: var(--gold-lt); margin-bottom: 12px;
+}
+.setup-banner ol {
+  padding-left: 20px; color: var(--muted);
+  font-size: 0.88rem; line-height: 2;
+}
+.setup-banner code {
+  background: rgba(201,168,76,0.1);
+  color: var(--gold-lt);
+  padding: 2px 7px; border-radius: 4px;
+  font-size: 0.82rem; font-family: monospace;
+}
+
+/* ── FOOTER ── */
+footer {
+  position: relative; z-index: 1;
+  border-top: 1px solid var(--border);
+  padding: 28px 0;
+  text-align: center;
+  font-size: 0.8rem; color: var(--muted);
+  font-family: 'Rajdhani', sans-serif; letter-spacing: 0.06em;
+}
+footer a { color: var(--gold); text-decoration: none; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 600px) {
+  .match-card { grid-template-columns: 1fr; text-align: center; gap: 8px; }
+  .team.away { flex-direction: row; justify-content: center; }
+  .team { justify-content: center; }
+  .podium { gap: 6px; }
+  .podium-item.first  { height: 170px; }
+  .podium-item.second { height: 140px; }
+  .podium-item.third  { height: 115px; }
+}
+</style>
+</head>
+<body>
+<div class="stars"></div>
+
+<header>
+  <div class="wrap">
+    <span class="trophy">⚽</span>
+    <h1>Quiniela Mundial 2026
+      <span>USA · CANADÁ · MÉXICO</span>
+    </h1>
+    <div class="host-badge">🏆 Organizado por Guille &nbsp;·&nbsp; Fase de Grupos</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav>
+    <button class="tab active" onclick="showTab('clasificacion')">🏆 Clasificación</button>
+    <button class="tab" onclick="showTab('partidos')">⚽ Partidos</button>
+    <button class="tab" onclick="showTab('quinielas')">👤 Quinielas</button>
+    <button class="tab" onclick="showTab('noticias')">📢 Noticias</button>
+    <button class="tab" onclick="showTab('info')">ℹ️ Info</button>
+  </nav>
+
+  <!-- ══ CLASIFICACIÓN ══ -->
+  <div id="tab-clasificacion" class="panel active">
+    <div class="sec-title">Tabla de Clasificación</div>
+    <div class="sec-sub">ACTUALIZACIÓN AUTOMÁTICA · FASE DE GRUPOS 2026</div>
+    <div id="stats-grid" class="stats-grid"></div>
+    <div id="podium" class="podium"></div>
+    <div class="tbl-wrap">
+      <table id="ranking-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>PARTICIPANTE</th>
+            <th>PUNTOS</th>
+            <th>EXACTOS ⭐</th>
+            <th>GANADOR ✓</th>
+            <th>JUGADOS</th>
+          </tr>
+        </thead>
+        <tbody id="ranking-body">
+          <tr><td colspan="6"><div class="loader">Cargando datos</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ PARTIDOS ══ -->
+  <div id="tab-partidos" class="panel">
+    <div class="sec-title">Resultados</div>
+    <div class="sec-sub">FASE DE GRUPOS · MUNDIAL 2026</div>
+    <div id="matches-container"><div class="loader">Cargando partidos</div></div>
+  </div>
+
+  <!-- ══ QUINIELAS ══ -->
+  <div id="tab-quinielas" class="panel">
+    <div class="sec-title">Quinielas</div>
+    <div class="sec-sub">PRONÓSTICOS DE CADA PARTICIPANTE</div>
+    <div id="quinielas-container"><div class="loader">Cargando quinielas</div></div>
+  </div>
+
+  <!-- ══ NOTICIAS ══ -->
+  <div id="tab-noticias" class="panel">
+    <div class="sec-title">Tablero de Noticias</div>
+    <div class="sec-sub">MENSAJES DEL ORGANIZADOR</div>
+    <div id="news-container"><div class="loader">Cargando noticias</div></div>
+  </div>
+
+  <!-- ══ INFO ══ -->
+  <div id="tab-info" class="panel">
+    <div class="sec-title">Información</div>
+    <div class="sec-sub">REGLAS Y CONTACTO</div>
+
+    <div class="setup-banner" id="setup-guide">
+      <h3>⚙️ Guía de configuración (solo tú la ves)</h3>
+      <ol>
+        <li>Crea un Google Sheet con las hojas: <code>Partidos</code>, <code>Participantes</code>, <code>Quinielas</code>, <code>Noticias</code></li>
+        <li>En el Sheet: <b>Archivo → Compartir → Publicar en la web</b> → formato CSV</li>
+        <li>Copia la URL base y ponla en <code>config.js</code> como <code>SHEET_ID</code></li>
+        <li>Sube los 3 archivos a GitHub y activa <b>GitHub Pages</b></li>
+        <li>Comparte la URL con los participantes</li>
+      </ol>
+      <p style="margin-top:12px; font-size:0.82rem; color:var(--muted)">
+        Lee el archivo <code>INSTRUCCIONES_SETUP.md</code> incluido para la guía completa paso a paso.
+      </p>
+    </div>
+
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px;backdrop-filter:blur(10px)">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:1.2rem;color:var(--gold-lt);margin-bottom:18px">Sistema de Puntos</div>
+      <div style="display:grid;gap:10px">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:rgba(201,168,76,0.05);border-radius:8px">
+          <span style="font-size:1.5rem">⭐⭐⭐</span>
+          <div><div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold-lt)">5 PUNTOS</div><div style="font-size:0.83rem;color:var(--muted)">Marcador exacto correcto</div></div>
+          <span style="margin-left:auto;font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:700;color:var(--gold-lt)">5</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:rgba(201,168,76,0.05);border-radius:8px">
+          <span style="font-size:1.5rem">⭐⭐</span>
+          <div><div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold-lt)">2 PUNTOS</div><div style="font-size:0.83rem;color:var(--muted)">Solo ganador o empate correcto</div></div>
+          <span style="margin-left:auto;font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:700;color:var(--gold-lt)">2</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:rgba(201,168,76,0.05);border-radius:8px">
+          <span style="font-size:1.5rem">✗</span>
+          <div><div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--muted)">0 PUNTOS</div><div style="font-size:0.83rem;color:var(--muted)">Resultado incorrecto</div></div>
+          <span style="margin-left:auto;font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:700;color:var(--muted)">0</span>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:1.1rem;color:var(--gold-lt);margin-bottom:12px">Premios — Pozo estimado Q5,850</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
+          <div style="padding:14px;background:rgba(201,168,76,0.08);border:1px solid var(--border2);border-radius:8px">
+            <div style="font-size:1.6rem">🥇</div>
+            <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold-lt);font-size:1.2rem">60%</div>
+            <div style="font-size:0.75rem;color:var(--muted)">≈ Q3,510</div>
+          </div>
+          <div style="padding:14px;background:rgba(201,168,76,0.08);border:1px solid var(--border2);border-radius:8px">
+            <div style="font-size:1.6rem">🥈</div>
+            <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold-lt);font-size:1.2rem">25%</div>
+            <div style="font-size:0.75rem;color:var(--muted)">≈ Q1,462</div>
+          </div>
+          <div style="padding:14px;background:rgba(201,168,76,0.08);border:1px solid var(--border2);border-radius:8px">
+            <div style="font-size:1.6rem">🥉</div>
+            <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold-lt);font-size:1.2rem">15%</div>
+            <div style="font-size:0.75rem;color:var(--muted)">≈ Q877</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);text-align:center">
+        <div style="font-family:'Rajdhani',sans-serif;font-size:0.8rem;letter-spacing:0.1em;color:var(--muted);margin-bottom:6px">CONTACTO</div>
+        <div style="color:var(--gold);font-size:1rem">📱 30727775 &nbsp;·&nbsp; 📧 josguila@gmail.com</div>
+      </div>
+    </div>
+  </div>
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Quiniela Mundial 2026 &nbsp;·&nbsp; Organizado por <a href="mailto:josguila@gmail.com">Guille</a>
+    &nbsp;·&nbsp; Fase de Grupos: 11 Jun – 27 Jun 2026
+  </div>
+</footer>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
