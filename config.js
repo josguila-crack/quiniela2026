@@ -6,7 +6,7 @@
 const CONFIG = {
   // Pega aquí el ID de tu Google Sheet (la parte larga de la URL)
   // Ejemplo: https://docs.google.com/spreadsheets/d/  ESTE_ID  /edit
-  SHEET_ID: 'https://docs.google.com/spreadsheets/d/14K9h1TiuoK2YGLNgascY4iI504J89sbipL7akljWP4g/edit?usp=sharing',
+  SHEET_ID: 'e/2PACX-1vSuQH49dbNP_GAHhXqZr5XQetgZ9lTLatHA48flP2FXHQGhQVpkKkXcmJiSHhPvJvsJSx377RSaReLD/pub?output=csv',
 
   // Nombres exactos de cada hoja dentro de tu Google Sheet
   SHEETS: {
