@@ -14,22 +14,30 @@ function showTab(name) {
 }
 
 // ── FETCH GOOGLE SHEET ────────────────────────────────
-// Google siempre llama google.visualization.Query.setResponse({...})
-// Interceptamos esa función globalmente antes de cargar el script
+// Usamos un callback único por petición para evitar colisiones
+let _fetchQueue = Promise.resolve();
+
 function fetchSheet(sheetName) {
+  // Encadenamos en cola para que no se pisen entre sí
+  _fetchQueue = _fetchQueue.then(() => _doFetch(sheetName));
+  return _fetchQueue;
+}
+
+function _doFetch(sheetName) {
   return new Promise((resolve, reject) => {
+    // Nombre de callback único
+    const cbName = '_gviz_' + Date.now() + '_' + Math.random().toString(36).slice(2);
     const script = document.createElement('script');
+
     const tid = setTimeout(() => {
+      delete window[cbName];
       script.remove();
-      reject(new Error('Timeout cargando: ' + sheetName));
+      reject(new Error('Timeout: ' + sheetName));
     }, 15000);
 
-    // Google llama esta función con los datos
-    window.google = window.google || {};
-    window.google.visualization = window.google.visualization || {};
-    window.google.visualization.Query = window.google.visualization.Query || {};
-    window.google.visualization.Query.setResponse = function(json) {
+    window[cbName] = function(json) {
       clearTimeout(tid);
+      delete window[cbName];
       script.remove();
       try { resolve(gvizToObjects(json)); }
       catch(e) { reject(e); }
@@ -37,11 +45,15 @@ function fetchSheet(sheetName) {
 
     const url = 'https://docs.google.com/spreadsheets/d/'
       + CONFIG.SHEET_ID
-      + '/gviz/tq?tqx=out:json&sheet='
-      + encodeURIComponent(sheetName);
+      + '/gviz/tq?tqx=out:json;handler:' + cbName
+      + '&sheet=' + encodeURIComponent(sheetName);
 
     script.src = url;
-    script.onerror = () => { clearTimeout(tid); script.remove(); reject(new Error('Error: ' + sheetName)); };
+    script.onerror = () => {
+      clearTimeout(tid);
+      delete window[cbName];
+      reject(new Error('Error cargando: ' + sheetName));
+    };
     document.head.appendChild(script);
   });
 }
