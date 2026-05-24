@@ -242,6 +242,28 @@ function renderNoticias(data) {
     : '<div class="error-msg">No hay noticias publicadas aún.</div>';
 }
 
+// ── CALCULAR PUNTOS AUTOMÁTICAMENTE ──────────────────
+function calcularClasificacion(quinielas, partidos) {
+  return quinielas.map(q => {
+    let pts = 0, exactos = 0, ganadores = 0, jugados = 0;
+    partidos.forEach((m, i) => {
+      const num = (m.partido || String(i+1)).trim();
+      const pl  = (q['p'+num+'_l'] ?? q['p'+(i+1)+'_l'] ?? '').trim();
+      const pv  = (q['p'+num+'_v'] ?? q['p'+(i+1)+'_v'] ?? '').trim();
+      const rl  = (m.gol_l||'').trim(), rv = (m.gol_v||'').trim();
+      const played = rl!==''&&rv!==''&&rl!==' '&&rv!==' ';
+      const filled = pl!==''&&pv!=='';
+      if (played && filled) {
+        jugados++;
+        const p = calcPuntos(pl,pv,rl,rv);
+        if (p===5) { pts+=5; exactos++; }
+        else if (p===2) { pts+=2; ganadores++; }
+      }
+    });
+    return { nick: q.nick||'—', pts: String(pts), exactos: String(exactos), ganadores: String(ganadores), jugados: String(jugados) };
+  });
+}
+
 // ── CARGA PRINCIPAL ───────────────────────────────────
 async function loadAll() {
   if (DEMO_MODE) {
@@ -265,14 +287,6 @@ async function loadAll() {
   }
 
   try {
-    const participantes = await fetchSheet(CONFIG.SHEETS.participantes);
-    renderClasificacion(participantes);
-  } catch(e) {
-    document.getElementById('ranking-body').innerHTML =
-      `<tr><td colspan="6"><div class="error-msg">Error participantes: ${e.message}</div></td></tr>`;
-  }
-
-  try {
     const noticias = await fetchSheet(CONFIG.SHEETS.noticias);
     renderNoticias(noticias);
   } catch(e) {
@@ -282,9 +296,15 @@ async function loadAll() {
 
   try {
     const quinielas = await fetchSheet(CONFIG.SHEETS.quinielas);
+    window._quinielasCache = quinielas;
+    // Calcular clasificación automáticamente desde quinielas + partidos
+    const clasificacion = calcularClasificacion(quinielas, window._partidosCache||[]);
+    renderClasificacion(clasificacion);
     renderQuinielas(quinielas, window._partidosCache||[]);
   } catch(e) {
     renderQuinielas([], window._partidosCache||[]);
+    document.getElementById('ranking-body').innerHTML =
+      `<tr><td colspan="6"><div class="error-msg">Error: ${e.message}</div></td></tr>`;
   }
 }
 
