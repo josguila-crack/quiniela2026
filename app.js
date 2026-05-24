@@ -1,4 +1,3 @@
-
 // ══════════════════════════════════════════════════════
 //  QUINIELA MUNDIAL 2026 — APP v5 FINAL
 //  Método: script tag con intercepción de setResponse
