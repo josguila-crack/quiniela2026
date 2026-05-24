@@ -1,4 +1,3 @@
-
 // ══════════════════════════════════════════════════════
 //  QUINIELA MUNDIAL 2026 — APP v4
 //  Quinielas con países, número de partido y colores
@@ -13,28 +12,27 @@ function showTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
 }
 
-// ── JSONP fetch ───────────────────────────────────────
-function fetchSheetJSONP(sheetName) {
-  return new Promise((resolve, reject) => {
-    const cbName = 'gviz_' + sheetName.replace(/\s/g,'_') + '_' + Date.now();
-    const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&callback=${cbName}`;
-    const timeout = setTimeout(() => {
-      delete window[cbName];
-      if (script.parentNode) script.parentNode.removeChild(script);
-      reject(new Error('Timeout: ' + sheetName));
-    }, 10000);
-    window[cbName] = function(json) {
-      clearTimeout(timeout);
-      delete window[cbName];
-      if (script.parentNode) script.parentNode.removeChild(script);
-      resolve(gvizToObjects(json));
-    };
-    const script = document.createElement('script');
-    script.src = url;
-    script.onerror = () => { clearTimeout(timeout); delete window[cbName]; reject(new Error('Error: ' + sheetName)); };
-    document.head.appendChild(script);
-  });
+// ── Fetch via allorigins proxy (works on Safari + all browsers) ──
+async function fetchSheetJSONP(sheetName) {
+  const sheetUrl = 'https://docs.google.com/spreadsheets/d/' + CONFIG.SHEET_ID + '/gviz/tq?tqx=out:json&sheet=' + encodeURIComponent(sheetName);
+  const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(sheetUrl);
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), 20000);
+  try {
+    const res = await fetch(proxyUrl, { signal: controller.signal });
+    clearTimeout(tid);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const text = data.contents || '';
+    const match = text.match(/setResponse\((.+)\)\s*;?\s*$/s);
+    if (!match) throw new Error('Sin datos en: ' + sheetName);
+    return gvizToObjects(JSON.parse(match[1]));
+  } catch(e) {
+    clearTimeout(tid);
+    throw new Error(sheetName + ': ' + (e.message || String(e)));
+  }
 }
+
 
 function gvizToObjects(json) {
   if (!json || !json.table) return [];
