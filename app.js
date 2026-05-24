@@ -1,10 +1,11 @@
 // ══════════════════════════════════════════════════════
-//  QUINIELA MUNDIAL 2026 — APP v4
-//  Quinielas con países, número de partido y colores
+//  QUINIELA MUNDIAL 2026 — APP v5 FINAL
+//  Método: script tag con intercepción de setResponse
 // ══════════════════════════════════════════════════════
 
 const DEMO_MODE = CONFIG.SHEET_ID === 'TU_SHEET_ID_AQUI';
 
+// ── TAB NAVIGATION ────────────────────────────────────
 function showTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -12,31 +13,43 @@ function showTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
 }
 
-// ── Fetch via allorigins proxy (works on Safari + all browsers) ──
-async function fetchSheetJSONP(sheetName) {
-  const sheetUrl = 'https://docs.google.com/spreadsheets/d/' + CONFIG.SHEET_ID + '/gviz/tq?tqx=out:json&sheet=' + encodeURIComponent(sheetName);
-  const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(sheetUrl);
-  const controller = new AbortController();
-  const tid = setTimeout(() => controller.abort(), 20000);
-  try {
-    const res = await fetch(proxyUrl, { signal: controller.signal });
-    clearTimeout(tid);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    const text = data.contents || '';
-    const match = text.match(/setResponse\((.+)\)\s*;?\s*$/s);
-    if (!match) throw new Error('Sin datos en: ' + sheetName);
-    return gvizToObjects(JSON.parse(match[1]));
-  } catch(e) {
-    clearTimeout(tid);
-    throw new Error(sheetName + ': ' + (e.message || String(e)));
-  }
+// ── FETCH GOOGLE SHEET ────────────────────────────────
+// Google siempre llama google.visualization.Query.setResponse({...})
+// Interceptamos esa función globalmente antes de cargar el script
+function fetchSheet(sheetName) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    const tid = setTimeout(() => {
+      script.remove();
+      reject(new Error('Timeout cargando: ' + sheetName));
+    }, 15000);
+
+    // Google llama esta función con los datos
+    window.google = window.google || {};
+    window.google.visualization = window.google.visualization || {};
+    window.google.visualization.Query = window.google.visualization.Query || {};
+    window.google.visualization.Query.setResponse = function(json) {
+      clearTimeout(tid);
+      script.remove();
+      try { resolve(gvizToObjects(json)); }
+      catch(e) { reject(e); }
+    };
+
+    const url = 'https://docs.google.com/spreadsheets/d/'
+      + CONFIG.SHEET_ID
+      + '/gviz/tq?tqx=out:json&sheet='
+      + encodeURIComponent(sheetName);
+
+    script.src = url;
+    script.onerror = () => { clearTimeout(tid); script.remove(); reject(new Error('Error: ' + sheetName)); };
+    document.head.appendChild(script);
+  });
 }
 
-
+// ── PARSE GVIZ RESPONSE ───────────────────────────────
 function gvizToObjects(json) {
   if (!json || !json.table) return [];
-  const cols = json.table.cols.map(c => (c.label || c.id || '').trim());
+  const cols  = json.table.cols.map(c => (c.label || c.id || '').trim());
   const types = json.table.cols.map(c => c.type || 'string');
   return (json.table.rows || []).map(row => {
     const obj = {};
@@ -44,11 +57,10 @@ function gvizToObjects(json) {
       if (!col) return;
       const cell = row.c ? row.c[i] : null;
       if (!cell || cell.v === null || cell.v === undefined) { obj[col] = ''; return; }
-      // Use formatted value 'f' when available (shows dates as "11-jun", numbers as "1")
+      // Usar valor formateado cuando existe (fechas, números)
       if (cell.f !== undefined && cell.f !== null) {
         obj[col] = String(cell.f).trim();
       } else if (types[i] === 'number') {
-        // Convert 1.0 -> "1"
         obj[col] = String(Math.round(parseFloat(cell.v)));
       } else {
         obj[col] = String(cell.v).trim();
@@ -60,22 +72,28 @@ function gvizToObjects(json) {
 
 // ── DEMO DATA ─────────────────────────────────────────
 function getDemoData() {
-  const partidos = [
-    {partido:'1',grupo:'A',fecha:'11-Jun',local:'México',      visitante:'Sudáfrica',   sede:'Cd. de México',gol_l:'2',gol_v:'1'},
-    {partido:'2',grupo:'A',fecha:'11-Jun',local:'Corea del Sur',visitante:'Rep. Checa', sede:'Guadalajara',  gol_l:'',gol_v:''},
-    {partido:'3',grupo:'B',fecha:'12-Jun',local:'Canadá',      visitante:'Bosnia-Herz.',sede:'Toronto',      gol_l:'',gol_v:''},
-    {partido:'4',grupo:'C',fecha:'13-Jun',local:'Brasil',      visitante:'Marruecos',   sede:'Nueva York/NJ',gol_l:'',gol_v:''},
-  ];
-  const participantes = [
-    {nick:'El Pulpo',     pts:'12',exactos:'2',ganadores:'2',jugados:'4',p1_l:'2',p1_v:'1',p2_l:'1',p2_v:'0',p3_l:'2',p3_v:'2',p4_l:'1',p4_v:'0'},
-    {nick:'La Pantera',   pts:'4', exactos:'0',ganadores:'2',jugados:'4',p1_l:'1',p1_v:'0',p2_l:'0',p2_v:'1',p3_l:'1',p3_v:'1',p4_l:'2',p4_v:'1'},
-    {nick:'Toro',         pts:'7', exactos:'1',ganadores:'1',jugados:'4',p1_l:'2',p1_v:'1',p2_l:'2',p2_v:'0',p3_l:'0',p3_v:'1',p4_l:'1',p4_v:'1'},
-  ];
-  const noticias = [
-    {fecha:'Jun 11 2026',titulo:'¡Arrancó el Mundial!',   cuerpo:'México venció 2-1 a Sudáfrica en el partido inaugural. ¡Gran inicio!'},
-    {fecha:'Jun 07 2026',titulo:'Quinielas cerradas hoy', cuerpo:'Hoy es el límite a las 20:00 hrs. ¡Mucho ánimo!'},
-  ];
-  return { partidos, participantes, noticias };
+  return {
+    partidos: [
+      {partido:'1',grupo:'A',fecha:'11-Jun',local:'México',        visitante:'Sudáfrica',   sede:'Cd. de México', gol_l:'2', gol_v:'1'},
+      {partido:'2',grupo:'A',fecha:'11-Jun',local:'Corea del Sur', visitante:'Rep. Checa',  sede:'Guadalajara',   gol_l:'',  gol_v:''},
+      {partido:'3',grupo:'B',fecha:'12-Jun',local:'Canadá',        visitante:'Bosnia-Herz.',sede:'Toronto',       gol_l:'',  gol_v:''},
+      {partido:'4',grupo:'C',fecha:'13-Jun',local:'Brasil',        visitante:'Marruecos',   sede:'Nueva York/NJ', gol_l:'',  gol_v:''},
+    ],
+    participantes: [
+      {nick:'El Pulpo',   pts:'7', exactos:'1',ganadores:'2',jugados:'4'},
+      {nick:'La Pantera', pts:'4', exactos:'0',ganadores:'2',jugados:'4'},
+      {nick:'Toro',       pts:'5', exactos:'1',ganadores:'0',jugados:'4'},
+    ],
+    quinielas: [
+      {nick:'El Pulpo',   p1_l:'2',p1_v:'1',p2_l:'1',p2_v:'0',p3_l:'2',p3_v:'0',p4_l:'0',p4_v:'1'},
+      {nick:'La Pantera', p1_l:'1',p1_v:'0',p2_l:'0',p2_v:'2',p3_l:'1',p3_v:'1',p4_l:'2',p4_v:'1'},
+      {nick:'Toro',       p1_l:'2',p1_v:'1',p2_l:'2',p2_v:'1',p3_l:'0',p3_v:'1',p4_l:'1',p4_v:'0'},
+    ],
+    noticias: [
+      {fecha:'Jun 11 2026', titulo:'¡Arrancó el Mundial!',   cuerpo:'México venció 2-1 a Sudáfrica. ¡Gran inicio!'},
+      {fecha:'Jun 07 2026', titulo:'Quinielas cerradas',     cuerpo:'Límite hoy a las 20:00 hrs. ¡Mucho ánimo!'},
+    ],
+  };
 }
 
 // ── RENDER CLASIFICACIÓN ──────────────────────────────
@@ -85,18 +103,19 @@ function renderClasificacion(data) {
     if (pb !== pa) return pb - pa;
     return parseInt(b.exactos||0) - parseInt(a.exactos||0);
   });
-  const totalJugados = sorted.length ? parseInt(sorted[0].jugados||0) : 0;
-  const leader = sorted[0];
+  const jugados = sorted.length ? parseInt(sorted[0].jugados||0) : 0;
+  const leader  = sorted[0];
+
   document.getElementById('stats-grid').innerHTML = `
     <div class="stat-card"><div class="val">${sorted.length}</div><div class="lbl">Participantes</div></div>
-    <div class="stat-card"><div class="val">${totalJugados}</div><div class="lbl">Partidos Jugados</div></div>
-    <div class="stat-card"><div class="val">${leader?leader.pts||0:0}</div><div class="lbl">Puntos Líder</div></div>
-    <div class="stat-card"><div class="val">${72-totalJugados}</div><div class="lbl">Por Jugar</div></div>`;
+    <div class="stat-card"><div class="val">${jugados}</div><div class="lbl">Partidos Jugados</div></div>
+    <div class="stat-card"><div class="val">${leader ? leader.pts||0 : 0}</div><div class="lbl">Puntos Líder</div></div>
+    <div class="stat-card"><div class="val">${72 - jugados}</div><div class="lbl">Por Jugar</div></div>`;
 
-  const medals = ['🥇','🥈','🥉'], classes = ['first','second','third'];
+  const medals = ['🥇','🥈','🥉'], cls = ['first','second','third'];
   document.getElementById('podium').innerHTML = [1,0,2].map(i => {
     const p = sorted[i]; if (!p) return '';
-    return `<div class="podium-item ${classes[i]}">
+    return `<div class="podium-item ${cls[i]}">
       <span class="podium-medal">${medals[i]}</span>
       <div class="podium-name">${p.nick||'—'}</div>
       <div class="podium-pts">${p.pts||0}<span> pts</span></div>
@@ -104,9 +123,9 @@ function renderClasificacion(data) {
   }).join('');
 
   document.getElementById('ranking-body').innerHTML = sorted.map((p,i) => {
-    const rank = i+1, bc = rank<=3?`rank-${rank}`:'rank-n';
-    return `<tr class="${rank<=3?'top3':''}">
-      <td><span class="rank-badge ${bc}">${rank}</span></td>
+    const r = i+1, bc = r<=3 ? `rank-${r}` : 'rank-n';
+    return `<tr class="${r<=3?'top3':''}">
+      <td><span class="rank-badge ${bc}">${r}</span></td>
       <td>${p.nick||'—'}</td>
       <td class="pts-cell">${p.pts||0}</td>
       <td class="exact-cell">${p.exactos||0}</td>
@@ -135,28 +154,24 @@ const getFlag = n => FLAGS[n] || '🏳️';
 
 function renderPartidos(data) {
   const grupos = {};
-  data.forEach(p => {
-    const g = p.grupo||'?';
-    if (!grupos[g]) grupos[g] = [];
-    grupos[g].push(p);
-  });
-  document.getElementById('matches-container').innerHTML = Object.entries(grupos).map(([grp, matches]) => `
+  data.forEach(p => { const g = p.grupo||'?'; if(!grupos[g]) grupos[g]=[]; grupos[g].push(p); });
+  document.getElementById('matches-container').innerHTML = Object.entries(grupos).map(([grp, ms]) => `
     <div class="group-section">
       <div class="group-header">
         <span class="group-label">GRUPO ${grp}</span>
-        <span class="group-title">${[...new Set(matches.flatMap(m=>[m.local,m.visitante]))].filter(Boolean).slice(0,4).join(' · ')}</span>
+        <span class="group-title">${[...new Set(ms.flatMap(m=>[m.local,m.visitante]))].filter(Boolean).slice(0,4).join(' · ')}</span>
       </div>
-      ${matches.map(m => {
-        const gl = m.gol_l||'', gv = m.gol_v||'', played = gl!==''&&gv!=='';
-        const num = m.partido||'';
+      ${ms.map(m => {
+        const gl = (m.gol_l||'').trim(), gv = (m.gol_v||'').trim();
+        const played = gl !== '' && gv !== '' && gl !== ' ' && gv !== ' ';
         return `<div class="match-card ${played?'played':''}">
           <div class="team">
             <span class="team-flag">${getFlag(m.local||'')}</span>
             <span class="team-name">${m.local||''}</span>
           </div>
           <div class="score-box">
-            ${played?`<div class="score-nums">${gl} – ${gv}</div>`:`<div class="score-pending">VS</div>`}
-            <div class="score-date">${m.fecha||''} ${num?'· #'+num:''}</div>
+            ${played ? `<div class="score-nums">${gl} – ${gv}</div>` : `<div class="score-pending">VS</div>`}
+            <div class="score-date">${m.fecha||''} ${m.partido ? '· #'+m.partido : ''}</div>
             <div class="score-venue">${m.sede||''}</div>
           </div>
           <div class="team away">
@@ -169,19 +184,18 @@ function renderPartidos(data) {
 }
 
 // ── RENDER QUINIELAS ──────────────────────────────────
-// Formato hoja: nick | p1_l | p1_v | p2_l | p2_v | ... p72_l | p72_v
-function renderQuinielas(participantes, partidos) {
-  if (!participantes.length) {
+function renderQuinielas(quinielas, partidos) {
+  if (!quinielas.length) {
     document.getElementById('quinielas-container').innerHTML =
       '<div class="error-msg">No hay quinielas cargadas aún.</div>'; return;
   }
   document.getElementById('quinielas-container').innerHTML = `
     <p style="color:var(--muted);font-size:0.85rem;margin-bottom:16px">
-      Selecciona un participante para ver su quiniela completa con países y número de partido.
+      Selecciona un participante para ver su quiniela completa.
     </p>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px">
-      ${participantes.map((p,i) => `
-        <button onclick="showQuiniela(${i})"
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px" id="q-buttons">
+      ${quinielas.map((p,i) => `
+        <button id="qbtn-${i}" onclick="showQuiniela(${i})"
           style="padding:8px 16px;background:var(--card);border:1px solid var(--border);
                  border-radius:8px;color:var(--cream);font-family:'Rajdhani',sans-serif;
                  font-size:0.88rem;font-weight:600;cursor:pointer;transition:all .2s"
@@ -193,83 +207,83 @@ function renderQuinielas(participantes, partidos) {
     <div id="quiniela-detail" style="color:var(--muted);font-size:0.85rem;text-align:center;padding:20px">
       Selecciona un participante ↑
     </div>`;
-  window._qData = participantes;
+  window._qData = quinielas;
   window._pData = partidos;
 }
 
+function calcPuntos(pl, pv, rl, rv) {
+  if (pl==='' || pv==='' || rl==='' || rv==='') return null;
+  const pli=parseInt(pl), pvi=parseInt(pv), rli=parseInt(rl), rvi=parseInt(rv);
+  if (isNaN(pli)||isNaN(pvi)||isNaN(rli)||isNaN(rvi)) return null;
+  if (pli===rli && pvi===rvi) return 5;
+  const rw = rli>rvi?'L':rvi>rli?'V':'E';
+  const pw = pli>pvi?'L':pvi>pli?'V':'E';
+  return rw===pw ? 2 : 0;
+}
+
 function showQuiniela(idx) {
+  document.querySelectorAll('[id^=qbtn-]').forEach(b => b.style.borderColor = 'var(--border)');
+  document.getElementById('qbtn-'+idx).style.borderColor = 'var(--gold)';
+
   const p = window._qData[idx];
   const partidos = window._pData || [];
   const name = p.nick || 'Participante';
+  let totalPts = 0;
 
-  // Calcular puntos por partido si hay resultados reales
-  const rows = partidos.map((match, i) => {
-    const num = match.partido || String(i+1);
-    const pl = p[`p${num}_l`] !== undefined ? p[`p${num}_l`] : p[`p${i+1}_l`] || '';
-    const pv = p[`p${num}_v`] !== undefined ? p[`p${num}_v`] : p[`p${i+1}_v`] || '';
-    const rl = match.gol_l || '', rv = match.gol_v || '';
-    const played = rl !== '' && rv !== '';
-    const filled = pl !== '' && pv !== '';
+  const rows = partidos.map((m, i) => {
+    const num = (m.partido || String(i+1)).trim();
+    const pl  = (p['p'+num+'_l'] ?? p['p'+(i+1)+'_l'] ?? '').trim();
+    const pv  = (p['p'+num+'_v'] ?? p['p'+(i+1)+'_v'] ?? '').trim();
+    const rl  = (m.gol_l||'').trim(), rv = (m.gol_v||'').trim();
+    const played = rl!=='' && rv!=='' && rl!==' ' && rv!==' ';
+    const filled = pl!=='' && pv!=='';
+    const pts = played && filled ? calcPuntos(pl,pv,rl,rv) : null;
+    if (pts !== null) totalPts += pts;
 
-    let pts = '', rowClass = '', badge = '';
-    if (played && filled) {
-      if (pl === rl && pv === rv) {
-        pts = '5'; rowClass = 'style="background:rgba(72,187,120,0.08)"'; badge = '⭐⭐⭐';
-      } else {
-        const realWinner = parseInt(rl)>parseInt(rv)?'L':parseInt(rv)>parseInt(rl)?'V':'E';
-        const pronWinner = parseInt(pl)>parseInt(pv)?'L':parseInt(pv)>parseInt(pl)?'V':'E';
-        if (realWinner === pronWinner) {
-          pts = '2'; rowClass = 'style="background:rgba(236,201,75,0.08)"'; badge = '⭐⭐';
-        } else {
-          pts = '0'; rowClass = 'style="background:rgba(245,101,101,0.06)"'; badge = '✗';
-        }
-      }
-    }
+    let bg = '', badge = '';
+    if (pts===5)      { bg='rgba(72,187,120,0.1)';  badge='⭐⭐⭐'; }
+    else if (pts===2) { bg='rgba(236,201,75,0.1)';  badge='⭐⭐'; }
+    else if (pts===0) { bg='rgba(245,101,101,0.07)';badge='✗'; }
 
-    return `<tr ${rowClass}>
-      <td style="color:var(--gold);font-weight:700;text-align:center">${num}</td>
+    return `<tr style="${bg?'background:'+bg:''}">
+      <td style="color:var(--gold);font-weight:700;text-align:center;font-size:0.85rem">${num}</td>
       <td>
-        <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
-          <span style="font-size:0.9rem">${getFlag(match.local||'')}</span>
-          <span style="font-weight:600;color:var(--cream)">${match.local||''}</span>
+        <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
+          <span>${getFlag(m.local||'')}</span>
+          <span style="font-weight:600;color:var(--cream);font-size:0.85rem">${m.local||''}</span>
         </div>
       </td>
-      <td style="text-align:center;font-weight:700;font-size:1.1rem;color:${filled?'var(--gold-lt)':'var(--muted)'};font-family:'Cormorant Garamond',serif">
-        ${filled?`${pl} – ${pv}`:'— –'}
+      <td style="text-align:center;font-weight:700;font-size:1.05rem;
+                 color:${filled?'var(--gold-lt)':'var(--muted)'};font-family:'Cormorant Garamond',serif">
+        ${filled ? pl+' – '+pv : '—'}
       </td>
       <td>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:0.9rem">${getFlag(match.visitante||'')}</span>
-          <span style="font-weight:600;color:var(--cream)">${match.visitante||''}</span>
+        <div style="display:flex;align-items:center;gap:5px">
+          <span>${getFlag(m.visitante||'')}</span>
+          <span style="font-weight:600;color:var(--cream);font-size:0.85rem">${m.visitante||''}</span>
         </div>
       </td>
-      <td style="text-align:center;font-size:0.85rem">${badge}</td>
-      <td style="text-align:center;font-weight:700;color:var(--gold-lt)">${pts}</td>
+      <td style="text-align:center">${badge}</td>
+      <td style="text-align:center;font-weight:700;color:var(--gold-lt)">${pts!==null?pts:''}</td>
     </tr>`;
   });
 
   document.getElementById('quiniela-detail').innerHTML = `
-    <div style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;color:var(--gold-lt);margin-bottom:6px">
-      ${name}
+    <div style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;color:var(--gold-lt);margin-bottom:4px">${name}</div>
+    <div style="font-size:0.8rem;color:var(--muted);margin-bottom:18px;font-family:'Rajdhani',sans-serif;letter-spacing:0.06em">
+      ${p.pts||totalPts} PTS &nbsp;·&nbsp; ${p.exactos||0} EXACTOS &nbsp;·&nbsp; ${p.ganadores||0} GANADORES
     </div>
-    <div style="font-size:0.8rem;color:var(--muted);margin-bottom:20px;font-family:'Rajdhani',sans-serif;letter-spacing:0.06em">
-      ${p.pts||0} PTS &nbsp;·&nbsp; ${p.exactos||0} EXACTOS &nbsp;·&nbsp; ${p.ganadores||0} GANADORES
-    </div>
-    <div class="tbl-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th style="width:40px">#</th>
-            <th style="text-align:right">LOCAL</th>
-            <th style="width:90px">PRONÓSTICO</th>
-            <th style="text-align:left">VISITANTE</th>
-            <th style="width:50px"></th>
-            <th style="width:40px">PTS</th>
-          </tr>
-        </thead>
-        <tbody>${rows.join('')}</tbody>
-      </table>
-    </div>`;
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th style="width:36px">#</th>
+        <th style="text-align:right">LOCAL</th>
+        <th style="width:80px">PRONÓSTICO</th>
+        <th style="text-align:left">VISITANTE</th>
+        <th style="width:44px"></th>
+        <th style="width:36px">PTS</th>
+      </tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table></div>`;
 }
 
 // ── RENDER NOTICIAS ───────────────────────────────────
@@ -277,50 +291,56 @@ function renderNoticias(data) {
   document.getElementById('news-container').innerHTML = data.length
     ? data.map(n=>`
         <div class="news-card">
-          <div class="news-date">${n.fecha||n.FECHA||''}</div>
-          <div class="news-title">${n.titulo||n.TITULO||'Noticia'}</div>
-          <div class="news-body">${n.cuerpo||n.CUERPO||n.mensaje||''}</div>
+          <div class="news-date">${n.fecha||''}</div>
+          <div class="news-title">${n.titulo||'Noticia'}</div>
+          <div class="news-body">${n.cuerpo||n.mensaje||''}</div>
         </div>`).join('')
     : '<div class="error-msg">No hay noticias publicadas aún.</div>';
 }
 
-// ── MAIN LOAD ─────────────────────────────────────────
+// ── CARGA SECUENCIAL ──────────────────────────────────
 async function loadAll() {
   if (DEMO_MODE) {
-    const demo = getDemoData();
-    renderClasificacion(demo.participantes);
-    renderPartidos(demo.partidos);
-    renderQuinielas(demo.participantes, demo.partidos);
-    renderNoticias(demo.noticias);
+    const d = getDemoData();
+    renderClasificacion(d.participantes);
+    renderPartidos(d.partidos);
+    renderQuinielas(d.quinielas, d.partidos);
+    renderNoticias(d.noticias);
     document.getElementById('setup-guide').style.display = 'block';
     return;
   }
   document.getElementById('setup-guide').style.display = 'none';
+
   try {
-    // Load sheets one by one — more reliable on Safari/mobile
-    const partidos      = await fetchSheetJSONP(CONFIG.SHEETS.partidos);
-    const participantes = await fetchSheetJSONP(CONFIG.SHEETS.participantes);
-    const noticias      = await fetchSheetJSONP(CONFIG.SHEETS.noticias);
-
-    window._partidosCache = partidos;
-    renderClasificacion(participantes);
+    const partidos = await fetchSheet(CONFIG.SHEETS.partidos);
     renderPartidos(partidos);
+    window._partidosCache = partidos;
+  } catch(e) {
+    document.getElementById('matches-container').innerHTML =
+      `<div class="error-msg">Error cargando partidos: ${e.message}</div>`;
+  }
+
+  try {
+    const participantes = await fetchSheet(CONFIG.SHEETS.participantes);
+    renderClasificacion(participantes);
+  } catch(e) {
+    document.getElementById('ranking-body').innerHTML =
+      `<tr><td colspan="6"><div class="error-msg">Error cargando participantes: ${e.message}</div></td></tr>`;
+  }
+
+  try {
+    const noticias = await fetchSheet(CONFIG.SHEETS.noticias);
     renderNoticias(noticias);
+  } catch(e) {
+    document.getElementById('news-container').innerHTML =
+      `<div class="error-msg">Error cargando noticias: ${e.message}</div>`;
+  }
 
-    // Quinielas optional — no bloquea si está vacía
-    try {
-      const quinielas = await fetchSheetJSONP(CONFIG.SHEETS.quinielas);
-      renderQuinielas(quinielas, partidos);
-    } catch(e) {
-      renderQuinielas([], partidos);
-    }
-
-  } catch(err) {
-    console.error('Error:', err);
-    ['ranking-body','matches-container','news-container'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = `<div class="error-msg">Error: ${err.message}<br>Verifica que el Google Sheet sea público.</div>`;
-    });
+  try {
+    const quinielas = await fetchSheet(CONFIG.SHEETS.quinielas);
+    renderQuinielas(quinielas, window._partidosCache || []);
+  } catch(e) {
+    renderQuinielas([], window._partidosCache || []);
   }
 }
 
