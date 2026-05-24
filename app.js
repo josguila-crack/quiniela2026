@@ -1,4 +1,3 @@
-
 // ══════════════════════════════════════════════════════
 //  QUINIELA MUNDIAL 2026 — APP v4
 //  Quinielas con países, número de partido y colores
@@ -299,21 +298,23 @@ async function loadAll() {
   }
   document.getElementById('setup-guide').style.display = 'none';
   try {
-    // Load main sheets — quinielas is optional (may be empty)
-    const [partidos, participantes, noticias] = await Promise.all([
-      fetchSheetJSONP(CONFIG.SHEETS.partidos),
-      fetchSheetJSONP(CONFIG.SHEETS.participantes),
-      fetchSheetJSONP(CONFIG.SHEETS.noticias),
-    ]);
+    // Load sheets one by one — more reliable on Safari/mobile
+    const partidos      = await fetchSheetJSONP(CONFIG.SHEETS.partidos);
+    const participantes = await fetchSheetJSONP(CONFIG.SHEETS.participantes);
+    const noticias      = await fetchSheetJSONP(CONFIG.SHEETS.noticias);
+
     window._partidosCache = partidos;
     renderClasificacion(participantes);
     renderPartidos(partidos);
     renderNoticias(noticias);
 
-    // Quinielas — load separately so it doesn't block the rest
-    fetchSheetJSONP(CONFIG.SHEETS.quinielas)
-      .then(quinielas => renderQuinielas(quinielas, partidos))
-      .catch(() => renderQuinielas([], partidos));
+    // Quinielas optional — no bloquea si está vacía
+    try {
+      const quinielas = await fetchSheetJSONP(CONFIG.SHEETS.quinielas);
+      renderQuinielas(quinielas, partidos);
+    } catch(e) {
+      renderQuinielas([], partidos);
+    }
 
   } catch(err) {
     console.error('Error:', err);
