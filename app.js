@@ -1,10 +1,9 @@
 // ══════════════════════════════════════════════════════
-//  QUINIELA MUNDIAL 2026 — APP v5 ESTABLE
-//  Método: intercepción de google.visualization.Query.setResponse
-//  Carga secuencial - una hoja a la vez
+//  QUINIELA MUNDIAL 2026 — APP v6
+//  Método: Google Apps Script — funciona en todos los browsers
 // ══════════════════════════════════════════════════════
 
-const DEMO_MODE = CONFIG.SHEET_ID === 'TU_SHEET_ID_AQUI';
+const DEMO_MODE = !CONFIG.APPS_SCRIPT_URL || CONFIG.APPS_SCRIPT_URL === '';
 
 // ── TAB NAVIGATION ────────────────────────────────────
 function showTab(name) {
@@ -14,71 +13,18 @@ function showTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
 }
 
-// ── FETCH GOOGLE SHEET ────────────────────────────────
-// Google SIEMPRE llama google.visualization.Query.setResponse(json)
-// Lo interceptamos, resolvemos la promesa y restauramos
-function fetchSheet(sheetName) {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-
-    const tid = setTimeout(() => {
-      script.remove();
-      reject(new Error('Timeout: ' + sheetName));
-    }, 15000);
-
-    // Guardamos handler previo para restaurar
-    const prev = window.google && window.google.visualization &&
-                 window.google.visualization.Query &&
-                 window.google.visualization.Query.setResponse;
-
-    window.google = window.google || {};
-    window.google.visualization = window.google.visualization || {};
-    window.google.visualization.Query = window.google.visualization.Query || {};
-    window.google.visualization.Query.setResponse = function(json) {
-      clearTimeout(tid);
-      script.remove();
-      // Restaurar handler previo
-      if (prev) window.google.visualization.Query.setResponse = prev;
-      try { resolve(gvizToObjects(json)); }
-      catch(e) { reject(e); }
-    };
-
-    const url = 'https://docs.google.com/spreadsheets/d/'
-      + CONFIG.SHEET_ID
-      + '/gviz/tq?tqx=out:json&sheet='
-      + encodeURIComponent(sheetName);
-
-    script.src = url;
-    script.onerror = () => {
-      clearTimeout(tid);
-      script.remove();
-      reject(new Error('Error: ' + sheetName));
-    };
-    document.head.appendChild(script);
-  });
-}
-
-// ── PARSE GVIZ RESPONSE ───────────────────────────────
-function gvizToObjects(json) {
-  if (!json || !json.table) return [];
-  const cols  = json.table.cols.map(c => (c.label || c.id || '').trim());
-  const types = json.table.cols.map(c => c.type || 'string');
-  return (json.table.rows || []).map(row => {
+// ── FETCH VIA APPS SCRIPT ─────────────────────────────
+async function fetchSheet(sheetName) {
+  const url = CONFIG.APPS_SCRIPT_URL + '?sheet=' + encodeURIComponent(sheetName);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Error HTTP ' + res.status + ' en ' + sheetName);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.map(row => {
     const obj = {};
-    cols.forEach((col, i) => {
-      if (!col) return;
-      const cell = row.c ? row.c[i] : null;
-      if (!cell || cell.v === null || cell.v === undefined) { obj[col] = ''; return; }
-      if (cell.f !== undefined && cell.f !== null) {
-        obj[col] = String(cell.f).trim();
-      } else if (types[i] === 'number') {
-        obj[col] = String(Math.round(parseFloat(cell.v)));
-      } else {
-        obj[col] = String(cell.v).trim();
-      }
-    });
+    Object.entries(row).forEach(([k,v]) => { obj[k.trim()] = String(v||'').trim(); });
     return obj;
-  }).filter(obj => Object.values(obj).some(v => v !== ''));
+  }).filter(row => Object.values(row).some(v => v !== ''));
 }
 
 // ── DEMO DATA ─────────────────────────────────────────
@@ -120,8 +66,8 @@ function renderClasificacion(data) {
   document.getElementById('stats-grid').innerHTML = `
     <div class="stat-card"><div class="val">${sorted.length}</div><div class="lbl">Participantes</div></div>
     <div class="stat-card"><div class="val">${jugados}</div><div class="lbl">Partidos Jugados</div></div>
-    <div class="stat-card"><div class="val">${leader ? leader.pts||0 : 0}</div><div class="lbl">Puntos Líder</div></div>
-    <div class="stat-card"><div class="val">${72 - jugados}</div><div class="lbl">Por Jugar</div></div>`;
+    <div class="stat-card"><div class="val">${leader?leader.pts||0:0}</div><div class="lbl">Puntos Líder</div></div>
+    <div class="stat-card"><div class="val">${72-jugados}</div><div class="lbl">Por Jugar</div></div>`;
 
   const medals = ['🥇','🥈','🥉'], cls = ['first','second','third'];
   document.getElementById('podium').innerHTML = [1,0,2].map(i => {
@@ -134,7 +80,7 @@ function renderClasificacion(data) {
   }).join('');
 
   document.getElementById('ranking-body').innerHTML = sorted.map((p,i) => {
-    const r = i+1, bc = r<=3 ? `rank-${r}` : 'rank-n';
+    const r = i+1, bc = r<=3?`rank-${r}`:'rank-n';
     return `<tr class="${r<=3?'top3':''}">
       <td><span class="rank-badge ${bc}">${r}</span></td>
       <td>${p.nick||'—'}</td>
@@ -173,16 +119,16 @@ function renderPartidos(data) {
         <span class="group-title">${[...new Set(ms.flatMap(m=>[m.local,m.visitante]))].filter(Boolean).slice(0,4).join(' · ')}</span>
       </div>
       ${ms.map(m => {
-        const gl = (m.gol_l||'').trim(), gv = (m.gol_v||'').trim();
-        const played = gl !== '' && gv !== '' && gl !== ' ' && gv !== ' ';
+        const gl=(m.gol_l||'').trim(), gv=(m.gol_v||'').trim();
+        const played = gl!==''&&gv!==''&&gl!==' '&&gv!==' ';
         return `<div class="match-card ${played?'played':''}">
           <div class="team">
             <span class="team-flag">${getFlag(m.local||'')}</span>
             <span class="team-name">${m.local||''}</span>
           </div>
           <div class="score-box">
-            ${played ? `<div class="score-nums">${gl} – ${gv}</div>` : `<div class="score-pending">VS</div>`}
-            <div class="score-date">${m.fecha||''} ${m.partido ? '· #'+m.partido : ''}</div>
+            ${played?`<div class="score-nums">${gl} – ${gv}</div>`:`<div class="score-pending">VS</div>`}
+            <div class="score-date">${m.fecha||''} ${m.partido?'· #'+m.partido:''}</div>
             <div class="score-venue">${m.sede||''}</div>
           </div>
           <div class="team away">
@@ -205,7 +151,7 @@ function renderQuinielas(quinielas, partidos) {
       Selecciona un participante para ver su quiniela completa.
     </p>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px">
-      ${quinielas.map((p,i) => `
+      ${quinielas.map((p,i)=>`
         <button id="qbtn-${i}" onclick="showQuiniela(${i})"
           style="padding:8px 16px;background:var(--card);border:1px solid var(--border);
                  border-radius:8px;color:var(--cream);font-family:'Rajdhani',sans-serif;
@@ -222,35 +168,31 @@ function renderQuinielas(quinielas, partidos) {
   window._pData = partidos;
 }
 
-function calcPuntos(pl, pv, rl, rv) {
-  const a=parseInt(pl), b=parseInt(pv), c=parseInt(rl), d=parseInt(rv);
-  if (isNaN(a)||isNaN(b)||isNaN(c)||isNaN(d)) return null;
-  if (a===c && b===d) return 5;
-  const rw = c>d?'L':d>c?'V':'E', pw = a>b?'L':b>a?'V':'E';
-  return rw===pw ? 2 : 0;
+function calcPuntos(pl,pv,rl,rv) {
+  const a=parseInt(pl),b=parseInt(pv),c=parseInt(rl),d=parseInt(rv);
+  if(isNaN(a)||isNaN(b)||isNaN(c)||isNaN(d)) return null;
+  if(a===c&&b===d) return 5;
+  const rw=c>d?'L':d>c?'V':'E', pw=a>b?'L':b>a?'V':'E';
+  return rw===pw?2:0;
 }
 
 function showQuiniela(idx) {
-  document.querySelectorAll('[id^=qbtn-]').forEach(b => b.style.borderColor='var(--border)');
-  document.getElementById('qbtn-'+idx).style.borderColor = 'var(--gold)';
-  const p = window._qData[idx];
-  const partidos = window._pData || [];
-  const name = p.nick || 'Participante';
+  document.querySelectorAll('[id^=qbtn-]').forEach(b=>b.style.borderColor='var(--border)');
+  document.getElementById('qbtn-'+idx).style.borderColor='var(--gold)';
+  const p=window._qData[idx], partidos=window._pData||[], name=p.nick||'Participante';
 
-  const rows = partidos.map((m,i) => {
-    const num = (m.partido||String(i+1)).trim();
-    const pl  = (p['p'+num+'_l'] ?? p['p'+(i+1)+'_l'] ?? '').trim();
-    const pv  = (p['p'+num+'_v'] ?? p['p'+(i+1)+'_v'] ?? '').trim();
-    const rl  = (m.gol_l||'').trim(), rv = (m.gol_v||'').trim();
-    const played = rl!==''&&rv!==''&&rl!==' '&&rv!==' ';
-    const filled = pl!==''&&pv!=='';
-    const pts = played&&filled ? calcPuntos(pl,pv,rl,rv) : null;
-
-    let bg='', badge='';
-    if (pts===5)      { bg='background:rgba(72,187,120,0.1)';  badge='⭐⭐⭐'; }
-    else if (pts===2) { bg='background:rgba(236,201,75,0.1)';  badge='⭐⭐'; }
-    else if (pts===0) { bg='background:rgba(245,101,101,0.07)';badge='✗'; }
-
+  const rows = partidos.map((m,i)=>{
+    const num=(m.partido||String(i+1)).trim();
+    const pl=(p['p'+num+'_l']??p['p'+(i+1)+'_l']??'').trim();
+    const pv=(p['p'+num+'_v']??p['p'+(i+1)+'_v']??'').trim();
+    const rl=(m.gol_l||'').trim(), rv=(m.gol_v||'').trim();
+    const played=rl!==''&&rv!==''&&rl!==' '&&rv!==' ';
+    const filled=pl!==''&&pv!=='';
+    const pts=played&&filled?calcPuntos(pl,pv,rl,rv):null;
+    let bg='',badge='';
+    if(pts===5){bg='background:rgba(72,187,120,0.1)';badge='⭐⭐⭐';}
+    else if(pts===2){bg='background:rgba(236,201,75,0.1)';badge='⭐⭐';}
+    else if(pts===0){bg='background:rgba(245,101,101,0.07)';badge='✗';}
     return `<tr style="${bg}">
       <td style="color:var(--gold);font-weight:700;text-align:center;font-size:0.85rem">${num}</td>
       <td><div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
@@ -270,7 +212,7 @@ function showQuiniela(idx) {
     </tr>`;
   });
 
-  document.getElementById('quiniela-detail').innerHTML = `
+  document.getElementById('quiniela-detail').innerHTML=`
     <div style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;color:var(--gold-lt);margin-bottom:4px">${name}</div>
     <div style="font-size:0.8rem;color:var(--muted);margin-bottom:18px;font-family:'Rajdhani',sans-serif;letter-spacing:0.06em">
       ${p.pts||0} PTS &nbsp;·&nbsp; ${p.exactos||0} EXACTOS &nbsp;·&nbsp; ${p.ganadores||0} GANADORES
@@ -300,7 +242,7 @@ function renderNoticias(data) {
     : '<div class="error-msg">No hay noticias publicadas aún.</div>';
 }
 
-// ── CARGA SECUENCIAL ──────────────────────────────────
+// ── CARGA PRINCIPAL ───────────────────────────────────
 async function loadAll() {
   if (DEMO_MODE) {
     const d = getDemoData();
@@ -317,26 +259,32 @@ async function loadAll() {
     const partidos = await fetchSheet(CONFIG.SHEETS.partidos);
     renderPartidos(partidos);
     window._partidosCache = partidos;
+  } catch(e) {
+    document.getElementById('matches-container').innerHTML =
+      `<div class="error-msg">Error partidos: ${e.message}</div>`;
+  }
 
+  try {
     const participantes = await fetchSheet(CONFIG.SHEETS.participantes);
     renderClasificacion(participantes);
+  } catch(e) {
+    document.getElementById('ranking-body').innerHTML =
+      `<tr><td colspan="6"><div class="error-msg">Error participantes: ${e.message}</div></td></tr>`;
+  }
 
+  try {
     const noticias = await fetchSheet(CONFIG.SHEETS.noticias);
     renderNoticias(noticias);
-
-    try {
-      const quinielas = await fetchSheet(CONFIG.SHEETS.quinielas);
-      renderQuinielas(quinielas, window._partidosCache);
-    } catch(e) {
-      renderQuinielas([], window._partidosCache || []);
-    }
-
   } catch(e) {
-    console.error(e);
-    ['ranking-body','matches-container','news-container'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = `<div class="error-msg">Error: ${e.message}</div>`;
-    });
+    document.getElementById('news-container').innerHTML =
+      `<div class="error-msg">Error noticias: ${e.message}</div>`;
+  }
+
+  try {
+    const quinielas = await fetchSheet(CONFIG.SHEETS.quinielas);
+    renderQuinielas(quinielas, window._partidosCache||[]);
+  } catch(e) {
+    renderQuinielas([], window._partidosCache||[]);
   }
 }
 
