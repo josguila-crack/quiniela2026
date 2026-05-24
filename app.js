@@ -254,3 +254,4 @@ async function loadAll() {
 
 loadAll();
 setInterval(loadAll, CONFIG.REFRESH_MINUTES * 60 * 1000);
+
