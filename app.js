@@ -38,12 +38,22 @@ function fetchSheetJSONP(sheetName) {
 function gvizToObjects(json) {
   if (!json || !json.table) return [];
   const cols = json.table.cols.map(c => (c.label || c.id || '').trim());
+  const types = json.table.cols.map(c => c.type || 'string');
   return (json.table.rows || []).map(row => {
     const obj = {};
     cols.forEach((col, i) => {
       if (!col) return;
       const cell = row.c ? row.c[i] : null;
-      obj[col] = cell ? (cell.v !== null && cell.v !== undefined ? String(cell.v) : '') : '';
+      if (!cell || cell.v === null || cell.v === undefined) { obj[col] = ''; return; }
+      // Use formatted value 'f' when available (shows dates as "11-jun", numbers as "1")
+      if (cell.f !== undefined && cell.f !== null) {
+        obj[col] = String(cell.f).trim();
+      } else if (types[i] === 'number') {
+        // Convert 1.0 -> "1"
+        obj[col] = String(Math.round(parseFloat(cell.v)));
+      } else {
+        obj[col] = String(cell.v).trim();
+      }
     });
     return obj;
   }).filter(obj => Object.values(obj).some(v => v !== ''));
@@ -288,6 +298,7 @@ async function loadAll() {
   }
   document.getElementById('setup-guide').style.display = 'none';
   try {
+    // Load main sheets — quinielas is optional (may be empty)
     const [partidos, participantes, noticias] = await Promise.all([
       fetchSheetJSONP(CONFIG.SHEETS.partidos),
       fetchSheetJSONP(CONFIG.SHEETS.participantes),
@@ -296,11 +307,16 @@ async function loadAll() {
     window._partidosCache = partidos;
     renderClasificacion(participantes);
     renderPartidos(partidos);
-    renderQuinielas(participantes, partidos);
     renderNoticias(noticias);
+
+    // Quinielas — load separately so it doesn't block the rest
+    fetchSheetJSONP(CONFIG.SHEETS.quinielas)
+      .then(quinielas => renderQuinielas(quinielas, partidos))
+      .catch(() => renderQuinielas([], partidos));
+
   } catch(err) {
     console.error('Error:', err);
-    ['ranking-body','matches-container','quinielas-container','news-container'].forEach(id => {
+    ['ranking-body','matches-container','news-container'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = `<div class="error-msg">Error: ${err.message}<br>Verifica que el Google Sheet sea público.</div>`;
     });
