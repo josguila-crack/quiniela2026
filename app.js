@@ -1,3 +1,4 @@
+
 // ══════════════════════════════════════════════════════
 //  QUINIELA MUNDIAL 2026 — APP v4
 //  Quinielas con países, número de partido y colores
